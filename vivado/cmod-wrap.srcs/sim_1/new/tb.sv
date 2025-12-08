@@ -91,7 +91,8 @@ module tb();
     RRC_Filter #(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
-        .PIPELEN(3)
+        .PIPELEN(3),
+        .fixed_gain(3)
     ) UUT2C (
         .clk(clk),
         .rst(rst),
@@ -123,6 +124,8 @@ module tb();
     localparam symb_one         = {{symb_whole-1{1'b0}}, 1'b1, {symb_frac{1'b0}}};
     localparam symb_neg_one     = {{symb_whole{1'b1}}, {symb_frac{1'b0}}};
     localparam symb_half        = symb_one / 2;
+    localparam symb_quart       = symb_one / 4;
+    localparam symb_eigth       = symb_one / 8;
     
     wire signed [(2*symb_width)-1:0] modulation_product;
     PipeMult #(
@@ -140,7 +143,7 @@ module tb();
     
     
     wire signed [symb_width-1:0] mod_out = modulation_product >>> symb_frac;
-    wire [symb_width-1:0] offset = mod_out + symb_one;
+    wire [symb_width-1:0] offset = mod_out + symb_one + symb_quart;
     wire [7:0] dac_out = offset[symb_width-1:symb_width-8];
     
     localparam adc_bitdepth = 12;
@@ -216,8 +219,8 @@ module tb();
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
         .kp(4),
-        .gkp(-3),
-        .win(32)
+        .gkp(-6),
+        .win(256)
     ) auto_amp (
         .clk(clk),
         .en(1),

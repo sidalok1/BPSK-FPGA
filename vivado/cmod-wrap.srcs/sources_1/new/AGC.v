@@ -29,7 +29,7 @@ module AGC
     localparam SYMBOL_WHOLE     = SYMBOL_WIDTH - SYMBOL_FRAC;
     localparam SYMBOL_ONE       = {{SYMBOL_WHOLE-1{1'b0}}, 1'b1, {SYMBOL_FRAC{1'b0}}};
     localparam real SYMB_ONE_REAL = $itor(SYMBOL_ONE);
-    localparam real noise_floor = 0.02; // somewhat arbitrary, not really tied to noise floor
+    localparam real noise_floor = 0.033; // somewhat arbitrary, not really tied to noise floor
     localparam integer reference = $rtoi(0.5 * SYMB_ONE_REAL);
 //    localparam integer reference = $rtoi(0.2 * GAIN_ONE_REAL);
     localparam integer max_gain = $rtoi(SYMBOL_ONE/noise_floor);

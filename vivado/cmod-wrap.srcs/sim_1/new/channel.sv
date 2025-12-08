@@ -28,7 +28,7 @@ module channel
     integer seed = 0;
     localparam real maxint = $itor(32'hEF_FF_FF_FF);
 //    integer stdev = $rtoi(maxint * 0.0033); // snr -30db
-    integer stdev = $rtoi(maxint * 0.1);    
+    integer stdev = $rtoi(maxint * 0.2);    
     function real awgn();
         return $dist_normal(seed, 0, stdev)/maxint;
     endfunction

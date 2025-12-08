@@ -121,7 +121,8 @@ module cmod(
     RRC_Filter #(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
-        .PIPELEN(3)
+        .PIPELEN(3),
+        .fixed_gain(3)
     ) psfilter (
         .clk(clk),
         .rst(0),
@@ -172,6 +173,8 @@ module cmod(
     localparam symb_one         = {{symb_whole-1{1'b0}}, 1'b1, {symb_frac{1'b0}}};
     localparam symb_neg_one     = {{symb_whole{1'b1}}, {symb_frac{1'b0}}};
     localparam symb_half        = symb_one / 2;
+    localparam symb_quart       = symb_one / 4;
+    localparam symb_eigth       = symb_one / 8;
     
     
     
@@ -183,14 +186,23 @@ module cmod(
     parameter adc_spl_rate = 3_000_000;
     
     
-    MAX11108_Controller adc_controller (
+//    MAX11108_Controller adc_controller (
+//        .clk(clk),
+//        .rst(0),
+//        .en(1),
+//        ._CS(cs),
+//        .POCI(sdo),
+//        .SCLK(sclk),
+//        .data(adc_out)
+//    );
+    max11108_controller (
         .clk(clk),
         .rst(0),
         .en(1),
-        ._CS(cs),
-        .POCI(sdo),
-        .SCLK(sclk),
-        .data(adc_out)
+        .din(sdo),
+        .dout(adc_out),
+        .sclk(sclk),
+        .cs(cs)
     );
     
     wire [13:0] adc_increased_bits = {2'b0, adc_out};
@@ -249,9 +261,9 @@ module cmod(
     AGC #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
-        .kp(5),
-        .gkp(-3),
-        .win(32)
+        .kp(4),
+        .gkp(-6),
+        .win(256)
     ) auto_amp (
         .clk(clk),
         .en(1),
@@ -272,7 +284,7 @@ module cmod(
         .en(reset_costas)
     );
     
-    pulse_generator #( .pulse_width(100) )
+    pulse_generator #( .pulse_width(1000) )
         rx_pulse_generator (
             .clk(clk),
             .rst(0),
@@ -287,8 +299,8 @@ module cmod(
 //        .SAMPLE_RATE(spl_rate),
 //        .CARRIER_FRQ($itor(carrier_frq - (carrier_frq * 0.03))),
         .CARRIER_FRQ(carrier_frq),
-        .kp(0.1),
-        .ki(0.002),
+        .kp(0.01),
+        .ki(0.00002),
         .kd(0)
     ) demodulator (
         .clk(clk),
@@ -305,7 +317,7 @@ module cmod(
         .DWIDTH(symb_width),
         .DFRAC(symb_frac),
         .PIPELEN(3),
-        .fixed_gain(-2)
+        .fixed_gain(-3)
     ) matched_filter (
         .clk(clk),
         .rst(0),
@@ -348,7 +360,7 @@ module cmod(
     
     always @ ( posedge clk ) if ( en ) begin
         mod_out <= modulation_product >>> symb_frac;
-        offset <= mod_out + symb_one;
+        offset <= mod_out + symb_one + symb_quart;
         adc_offset <= adc_increased_bits - 14'h0800;
     end
     

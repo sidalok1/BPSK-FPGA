@@ -114,7 +114,7 @@ module Controller
     
     uarttx #(
         .I_CLK_FRQ(96_000_000),
-        .BAUD(9600),
+        .BAUD(115200),
         .PARITY(0),
         .FRAME(8),
         .STOP(1)
