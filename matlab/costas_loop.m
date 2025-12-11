@@ -1,4 +1,4 @@
-function [I, Q, theta, err] = costas_loop(signal, fr, Fs, t, Kp, Ki, Kd, Ftype, Fmath)
+function [I, Q, theta, err, lp] = costas_loop(signal, fr, Fs, t, Kp, Ki, Kd, Ftype, Fmath)
     % Array Setup
     theta = zeros(1, length(signal));
     I = fi(zeros(1, length(signal)), Ftype, Fmath);
@@ -15,8 +15,8 @@ function [I, Q, theta, err] = costas_loop(signal, fr, Fs, t, Kp, Ki, Kd, Ftype, 
     for k = (M + 1):length(signal)
 
         % Mix the signal with the sines and cosines
-        I_(k) = signal(k) * fi(2 * cos(2 * pi * fr * t(k) + theta(k)), Ftype, Fmath);
-        Q_(k) = signal(k) * fi(-2 * sin(2 * pi * fr * t(k) + theta(k)), Ftype, Fmath);
+        I_(k) = signal(k) * fi(1 * cos(2 * pi * fr * t(k) + theta(k)), Ftype, Fmath);
+        Q_(k) = signal(k) * fi(-1 * sin(2 * pi * fr * t(k) + theta(k)), Ftype, Fmath);
      
         % Lowpass with the previous M samples
         I_lowpassed = conv(lp, I_(k-M:k));
@@ -32,4 +32,5 @@ function [I, Q, theta, err] = costas_loop(signal, fr, Fs, t, Kp, Ki, Kd, Ftype, 
         theta(k+1) = theta(k) + Kp*err(k) + Ki*sum(err) + Kd*(err(k)-err(k-1));
     
     end
+    lp = lp.';
 end
