@@ -143,7 +143,7 @@ module tb();
     
     
     wire signed [symb_width-1:0] mod_out = modulation_product >>> symb_frac;
-    wire [symb_width-1:0] offset = mod_out + symb_one + symb_quart;
+    wire [symb_width-1:0] offset = mod_out + symb_one + symb_half;
     wire [7:0] dac_out = offset[symb_width-1:symb_width-8];
     
     localparam adc_bitdepth = 12;
