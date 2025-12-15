@@ -258,7 +258,7 @@ module wireless_system(
         .ac_signal(ac_signal)
     );
     
-    AGC #(
+    AGC_old #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
         .kp(4),

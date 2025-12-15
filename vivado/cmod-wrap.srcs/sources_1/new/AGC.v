@@ -6,11 +6,12 @@ module AGC
     parameter SYMBOL_WIDTH  = 16,
     //  Length of the fractional portion of a signal
     parameter SYMBOL_FRAC   = 14,
-    //  Input clock frequency in hertz
+    //  Width of part of input used to index into reciprocal table
+    parameter RECIP_WIDTH   = 12,
     //  PID control values
-    parameter kp = 4,
-    parameter gkp = -6,
-    parameter win = 128
+    parameter real kp = 0.1,
+    parameter real ki = 0.0,
+    parameter real kd = 0.002
 )
 (
     input wire                              clk, en, rst,
@@ -19,105 +20,96 @@ module AGC
     output reg signed [SYMBOL_WIDTH-1:0]    out_sample,
     output wire signal_detected
 );
-
-    localparam GAIN_WIDTH = 32;
-    localparam GAIN_FRAC = 16;
-    localparam GAIN_WHOLE = GAIN_WIDTH - GAIN_FRAC;
-    localparam GAIN_ONE = {{GAIN_WHOLE-1{1'b0}}, 1'b1, {GAIN_FRAC{1'b0}}};
-    localparam real GAIN_ONE_REAL = $itor(GAIN_ONE);
-
-    localparam SYMBOL_WHOLE     = SYMBOL_WIDTH - SYMBOL_FRAC;
-    localparam SYMBOL_ONE       = {{SYMBOL_WHOLE-1{1'b0}}, 1'b1, {SYMBOL_FRAC{1'b0}}};
-    localparam real SYMB_ONE_REAL = $itor(SYMBOL_ONE);
-    localparam real noise_floor = 0.033; // somewhat arbitrary, not really tied to noise floor
-    localparam integer reference = $rtoi(0.5 * SYMB_ONE_REAL);
-//    localparam integer reference = $rtoi(0.2 * GAIN_ONE_REAL);
-    localparam integer max_gain = $rtoi(SYMBOL_ONE/noise_floor);
-
+    //  Addressable size of reciprocal table
+    localparam RECIP_MAX = (2**RECIP_WIDTH) - 1;
+    integer n;
+    real x;
+    reg [(2*RECIP_WIDTH)-1:0] reciprocals [0:RECIP_MAX];
+    reg [(2*RECIP_WIDTH)-1:0] recip, gain;
     
-    integer gain;
-    integer target_gain;
-    integer count;
-    reg signed [SYMBOL_WIDTH-1:0] max_signal;
-    assign signal_detected = target_gain < max_gain;
-
-
-    reg signed [SYMBOL_WIDTH-1:0] in_signal;
+    localparam reg signed [31:0] KP = $rtoi(kp * ($pow(2, 16)));
+    localparam reg signed [31:0] KI = $rtoi(ki * ($pow(2, 16)));
+    localparam reg signed [31:0] KD = $rtoi(kd * ($pow(2, 16)));
     
-    reg signed [(2*SYMBOL_WIDTH)-1:0] amplified;
-    reg signed [(2*SYMBOL_WIDTH)-1:0] abs;
-    integer err, gain_err;
-    
-    integer newgain1, newgain2, newtarget_gain1, newtarget_gain2;
+    reg signed [31:0] err, sum_err, dif_err,
+        new_err, new_sum_err, new_dif_err,
+        proportional, integral, derivative;
     
     initial begin
-        gain = 0;
+        reciprocals[0] = (2**(SYMBOL_WIDTH*2))-1;
+        for ( n = 1; n <= RECIP_MAX; n = n + 1 ) begin
+            x = 1.0 / itor(n);
+            reciprocals[n] = $rtoi(x);
+        end
         err = 0;
-        gain_err = 0;
+        sum_err = 0;
+        dif_err = 0;
+        new_err = 0;
+        new_sum_err = 0;
+        new_dif_err = 0;
+        proportional = 0;
+        integral = 0;
+        derivative = 0;
+        recip = 0;
+        gain = 0;
         out_sample = 0;
-        in_signal = 0;
-        amplified = 0;
-        abs = 0;
-        target_gain = 0;
-        count = 0;
-        max_signal = 0;
-        newgain1 = 0;
-        newtarget_gain1 = 0;
-        newgain2 = 0;
-        newtarget_gain2 = 0;
     end
     
+    reg [RECIP_WIDTH-1:0] input_magnitude = 0;
+    wire signed [SYMBOL_WIDTH+(RECIP_WIDTH*2):0] amplifier_out;
     
-    always @ ( posedge clk )
-    if ( rst ) begin
-//        gain <= max_gain;
-        max_signal <= 0;
-        gain <= 0;
-        gain_err <= 0;
-        out_sample <= 0;
-        in_signal <= 0;
-        amplified <= 0;
-        abs <= 0;
-        err <= 0;
-        target_gain <= 0;
-        count <= 0;
-        newgain1 <= 0;
-        newtarget_gain1 <= 0;
-        newgain2 <= 0;
-        newtarget_gain2 <= 0;
-    end else
-    if ( en ) begin
-        amplified <= (in_signal * gain) >>> GAIN_FRAC;
-        abs <= amplified < 0 ? -1*amplified : amplified;
-        err <= reference - max_signal;
-        gain_err <= target_gain - gain;
-        if ( gkp < 0 ) begin
-            newgain1 <= gain + (gain_err >>> -gkp);
-        end else begin
-            newgain1 <= gain + (gain_err <<< gkp);
-        end
-        if ( kp < 0 ) begin
-            newtarget_gain1 <= target_gain + (err >>> -kp);
-        end else begin
-            newtarget_gain1 <= target_gain + (err <<< kp);
-        end
-        newgain2 <= newgain1 < 0 ? 0 : newgain1;
-        newtarget_gain2 <= newtarget_gain1 < 0 ? 0 : newtarget_gain1;
-        if ( new_sample ) begin
-            in_signal <= in_sample;
-            out_sample <= amplified;
-            gain <= newgain2 < max_gain ? newgain2 : max_gain;
-            if ( count == win ) begin
-                target_gain <= newtarget_gain2 < max_gain ? newtarget_gain2 : max_gain;
-                max_signal <= 0;
-                count <= 0;
-            end else begin
-                max_signal <= abs > max_signal ? abs : max_signal;
-                count <= count + 1;
+    localparam min_signal = $rtoi(0.1 * (2**SYMBOL_FRAC));
+    assign signal_detected = gain >= reciprocals[min_signal];
+    
+    PipeMult #(
+        .WIDTH_A(SYMBOL_WIDTH),
+        .WIDTH_B((RECIP_WIDTH*2)+1),
+        .PIPELEN(5)
+    ) amplifier (
+        .clk(clk),
+        .rst(rst),
+        .en(en),
+        .a(in_sample),
+        .b({1'b0, gain}), // single bit pad ensures this operand always "appears" positive
+        // which further ensures msb of output matches that of operand a
+        .r(amplifier_out)
+    );
+    
+    
+    always @ ( posedge clk ) begin
+        if ( rst ) begin
+            out_sample <= 0;
+            recip <= 0;
+            gain <= 0;
+            derivative <= 0;
+            integral <= 0;
+            proportional <= 0;
+            new_dif_err <= 0;
+            new_sum_err <= 0;
+            new_err <= 0;
+            dif_err <= 0;
+            sum_err <= 0;
+            err <= 0;
+            input_magnitude <= 0;
+        end else
+        if ( en ) begin
+            recip <= reciprocals[input_magnitude];
+            
+            new_err <= recip - gain;
+            new_dif_err <= new_err - err;
+            new_sum_err <= new_err + sum_err;
+            
+            proportional <= (new_err * KP) >>> 16;
+            integral <= (new_sum_err * KI) >>> 16;
+            derivative <= (new_dif_err * KD) >>> 16;
+            if ( new_sample ) begin
+                out_sample <= amplifier_out >>> (SYMBOL_FRAC + RECIP_WIDTH);
+                gain <= gain + proportional + integral + derivative;
+                input_magnitude <=  (in_sample >= 0) ? 
+                    (in_sample[(SYMBOL_WIDTH-1)-:8]) : 
+                   -(in_sample[(SYMBOL_WIDTH-1)-:8]) ;
             end
         end
     end
-    
-    
     
 endmodule
