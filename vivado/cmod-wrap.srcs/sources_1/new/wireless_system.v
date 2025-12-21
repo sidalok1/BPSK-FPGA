@@ -75,7 +75,7 @@ module wireless_system(
             .en(msg_edge)
         );
     
-    pulse_generator #( .pulse_width(100_000_000) )
+    pulse_generator #( .pulse_width(50_000_000) )
         msg_pulse_generator (
             .clk(clk),
             .rst(0),
@@ -237,9 +237,6 @@ module wireless_system(
         .o_sample(filtered_adc)
     );
     
-    wire signed[13:0] agc_out;
-    wire signal_detected;
-    
     wire signed [symb_width-1:0] ac_signal;
     
     DC_Decouple #(
@@ -258,31 +255,50 @@ module wireless_system(
         .ac_signal(ac_signal)
     );
     
-    AGC_old #(
-        .SYMBOL_WIDTH(symb_width),
-        .SYMBOL_FRAC(symb_frac),
-        .kp(4),
-        .gkp(-6),
-        .win(256)
-    ) auto_amp (
-        .clk(clk),
-        .en(1),
-        .rst(0),
-        .new_sample(new_sample),
-        .in_sample(ac_signal),
-        .out_sample(agc_out),
-        .signal_detected(signal_detected)
-    );
+    wire signed[13:0] agc_out;
+    wire signal_detected;
     
-    wire reset_costas;
+    wire reset_rx;
     edgedetect #(
         .DETECT_NEGEDGE(0)
     ) new_signal_detector (
         .clk(clk),
         .rst(0),
         .sig(signal_detected),
-        .en(reset_costas)
+        .en(reset_rx)
     );
+    
+    signal_detector #(
+        .SYMBOL_WIDTH(symb_width),
+        .SYMBOL_FRAC(symb_frac),
+        .N(256),
+        .dB_THRESH(-20)
+    ) channel_detector (
+        .clk(clk),
+        .en(1),
+        .rst(0),
+        .new_sample(new_sample),
+        .sample(ac_signal),
+        .signal_detected(signal_detected)
+    );
+    
+    AGC #(
+        .SYMBOL_WIDTH(symb_width),
+        .SYMBOL_FRAC(symb_frac),
+        .N(256),
+        .kp(0.02),
+        .ki(0.0),
+        .kd(0.005),
+        .TARGET_LEVEL(0.5)
+    ) auto_amp (
+        .clk(clk),
+        .en(1),
+        .rst(reset_rx),
+        .new_sample(new_sample),
+        .in_sample(ac_signal),
+        .out_sample(agc_out)
+    );
+
     
     pulse_generator #( .pulse_width(1000) )
         rx_pulse_generator (
@@ -304,7 +320,7 @@ module wireless_system(
         .kd(0)
     ) demodulator (
         .clk(clk),
-        .rst(reset_costas),
+        .rst(reset_rx),
         .en(1),
         .new_sample(new_sample),
         .modulated_input(agc_out),
@@ -337,7 +353,7 @@ module wireless_system(
         .kd(5)
     ) sampler (
         .clk(clk),
-        .rst(reset_costas),
+        .rst(reset_rx),
         .en(1),
         .sample(filtered_in_phase),
         .new_sample(new_sample),
