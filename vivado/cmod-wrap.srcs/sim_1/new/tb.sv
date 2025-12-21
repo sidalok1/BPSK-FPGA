@@ -15,6 +15,23 @@ module tb();
     wire en = 1;
     wire rst = 0;
     reg start = 0;
+    
+    reg axis_state = 0;
+    
+    reg [31:0] m_axis_tdata = 0;
+    reg [3:0] m_axis_tkeep = 0;
+    reg m_axis_tlast = 0;
+    reg m_axis_tvalid = 0;
+    wire m_axis_tready;
+    
+    wire [31:0] s_axis_tdata;
+    wire [3:0] s_axis_tkeep;
+    wire s_axis_tlast;
+    wire s_axis_tvalid;
+    reg s_axis_tready = 1;
+    
+    always @ ( posedge clk ) if ( m_axis_tvalid && m_axis_tready ) m_axis_tvalid <= 0;
+    
     wire signed [symb_width-1:0] sym_gen_out;
 //    wire sym_gen_ready;
     
@@ -79,11 +96,22 @@ module tb();
         .new_sample(new_sample),
         .sample(sym_gen_out),
         
+        .s_axis_tdata(m_axis_tdata),
+        .s_axis_tkeep(m_axis_tkeep),
+        .s_axis_tlast(m_axis_tlast),
+        .s_axis_tvalid(m_axis_tvalid),
+        .s_axis_tready(m_axis_tready),
+        
+        .m_axis_tdata(s_axis_tdata),
+        .m_axis_tkeep(s_axis_tkeep),
+        .m_axis_tlast(s_axis_tlast),
+        .m_axis_tvalid(s_axis_tvalid),
+        .m_axis_tready(s_axis_tready),
+        
         .rx_bit(rx_bit),
         .new_bit(new_bit),
         .msg_found(msg_found),
-        .inv_msg_found(inv_msg_found),
-        .uart_tx(uart_rxd_out)
+        .inv_msg_found(inv_msg_found)
     );
     
     wire signed [symb_width-1:0] ps_out;
@@ -230,7 +258,7 @@ module tb();
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
         .N(256),
-        .dB_THRESH(-20)
+        .dB_THRESH(-30)
     ) channel_detector (
         .clk(clk),
         .en(1),
@@ -244,9 +272,9 @@ module tb();
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
         .N(256),
-        .kp(0.02),
-        .ki(0.0),
-        .kd(0.005),
+        .kp(10),
+        .ki(0.0025),
+        .kd(0),
         .TARGET_LEVEL(0.5)
     ) auto_amp (
         .clk(clk),
@@ -334,8 +362,28 @@ module tb();
     
     
     initial begin
-        #10 start = 1;
-        #10 start = 0;
+        #10 m_axis_tdata = "hell";
+        m_axis_tvalid = 1;
+        while ( m_axis_tvalid ) #1;
+        
+        m_axis_tdata = "o ov";
+        m_axis_tvalid = 1;
+        while ( m_axis_tvalid ) #1;
+        
+        m_axis_tdata = "er t";
+        m_axis_tvalid = 1;
+        while ( m_axis_tvalid ) #1;
+        
+        m_axis_tdata = "here";
+        m_axis_tvalid = 1;
+        while ( m_axis_tvalid ) #1;
+        
+        m_axis_tdata = "!\0\0\0";
+        m_axis_tvalid = 1;
+        m_axis_tlast = 1;
+        m_axis_tkeep = 'b1000;
+        
+        
         #5_000_000 start = 1;
         #10 start = 0;
     end

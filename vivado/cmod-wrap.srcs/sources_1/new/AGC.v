@@ -18,27 +18,29 @@ module AGC
     output reg signed [SYMBOL_WIDTH-1:0]    out_sample
 );
 
+    localparam PID_FRAC = 24;
+    localparam PID_WIDTH = PID_FRAC*2;
     localparam signed [SYMBOL_WIDTH-1:0] signal_one = 1 << SYMBOL_FRAC;
     localparam signed [(2*SYMBOL_WIDTH)-1:0] power_one = 1 << (SYMBOL_FRAC * 2),
         target_power = $rtoi( ((TARGET_LEVEL**2)/2) * power_one ); // power of sinusoid with amplitude one
 
-    localparam reg signed [31:0] KP = $rtoi(kp * ($pow(2, 16))) / N;
-    localparam reg signed [31:0] KI = $rtoi(ki * ($pow(2, 16))) / N;
-    localparam reg signed [31:0] KD = $rtoi(kd * ($pow(2, 16))) / N;
+
+    localparam reg signed [PID_WIDTH-1:0] KP = $rtoi(kp * (2**PID_FRAC)) / N;
+    localparam reg signed [PID_WIDTH-1:0] KI = $rtoi(ki * (2**PID_FRAC)) / N;
+    localparam reg signed [PID_WIDTH-1:0] KD = $rtoi(kd * (2**PID_FRAC)) / N;
     
-    reg signed [31:0] err, sum_err, dif_err,
+    reg signed [PID_WIDTH-1:0] err, sum_err, dif_err,
         new_err, new_sum_err, new_dif_err,
         proportional, integral, derivative;
 
-    localparam GAIN_FRAC = 16;
-    reg signed [31:0] gain, newgain;
-    wire signed [(SYMBOL_WIDTH+32)-1:0] amplifier_output;
+    reg signed [PID_WIDTH-1:0] gain, newgain;
+    wire signed [(SYMBOL_WIDTH+PID_WIDTH)-1:0] amplifier_output;
     wire signed [(2*SYMBOL_WIDTH)-1:0] signal_power;
     reg signed [SYMBOL_WIDTH-1:0] amplified_signal, signal;
     
     PipeMult #(
         .WIDTH_A(SYMBOL_WIDTH),
-        .WIDTH_B(32),
+        .WIDTH_B(PID_WIDTH),
         .PIPELEN(10)
     ) amplifier (
         .clk(clk),
@@ -98,15 +100,15 @@ module AGC
             signal <= 0;
         end else
         if ( en ) begin
-            amplified_signal <= amplifier_output >>> GAIN_FRAC;
+            amplified_signal <= amplifier_output >>> PID_FRAC;
             
             new_err <= target_power - signal_power;
             new_dif_err <= new_err - err;
             new_sum_err <= new_err + sum_err;
             
-            proportional <= (new_err * KP) >>> 16;
-            integral <= (new_sum_err * KI) >>> 16;
-            derivative <= (new_dif_err * KD) >>> 16;
+            proportional <= (new_err * KP) >>> PID_FRAC;
+            integral <= (new_sum_err * KI) >>> PID_FRAC;
+            derivative <= (new_dif_err * KD) >>> PID_FRAC;
             
             newgain <= gain + proportional + integral + derivative;
             if ( new_sample ) begin

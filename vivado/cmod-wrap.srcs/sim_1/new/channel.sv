@@ -60,7 +60,7 @@ module channel
         y = (a1 * x) + w1;
         w1 = (a2 * x) + w2 - (b2 * y);
         w2 = (a3 * x) - (b3 * y);
-        impaired_signal = adc((y * 1.1) + 1.4 + awgn());
+        impaired_signal = adc((y * 0.25) + 1.4 + awgn());
     end
     
 endmodule
