@@ -27,7 +27,18 @@ module wireless_system(
     output wire sclk,
     input wire sdo,
     output wire [1:0] led,
-    output wire uart_rxd_out
+    
+    input wire [31:0]                       s_axis_tdata,
+    input wire [3:0]                        s_axis_tkeep,
+    input wire                              s_axis_tlast,
+    input wire                              s_axis_tvalid,
+    output wire                             s_axis_tready,
+    
+    output wire [31:0]                      m_axis_tdata,
+    output wire [3:0]                       m_axis_tkeep,
+    output wire                             m_axis_tlast,
+    output wire                             m_axis_tvalid,
+    input wire                              m_axis_tready
     );
     
     parameter symb_width = 14;
@@ -108,11 +119,23 @@ module wireless_system(
         .new_sample(new_sample),
         .sample(symbol_generator_out),
         
+        //  Pass-through of axi stream signals
+        .s_axis_tdata(s_axis_tdata),
+        .s_axis_tkeep(s_axis_tkeep),
+        .s_axis_tlast(s_axis_tlast),
+        .s_axis_tvalid(s_axis_tvalid),
+        .s_axis_tready(s_axis_tready),
+        
+        .m_axis_tdata(m_axis_tdata),
+        .m_axis_tkeep(m_axis_tkeep),
+        .m_axis_tlast(m_axis_tlast),
+        .m_axis_tvalid(m_axis_tvalid),
+        .m_axis_tready(m_axis_tready),
+        
         .rx_bit(rx_bit),
         .new_bit(new_bit),
         .msg_found(msg_found),
-        .inv_msg_found(inv_msg_found),
-        .uart_tx(uart_rxd_out)
+        .inv_msg_found(inv_msg_found)
     );
     
     wire signed [symb_width-1:0] pulse_shape_out;
