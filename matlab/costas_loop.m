@@ -32,5 +32,4 @@ function [I, Q, theta, err, lp] = costas_loop(signal, fr, Fs, t, Kp, Ki, Kd, Fty
         theta(k+1) = theta(k) + Kp*err(k) + Ki*sum(err) + Kd*(err(k)-err(k-1));
     
     end
-    lp = lp.';
 end
