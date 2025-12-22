@@ -111,7 +111,7 @@ module Controller
     // Maximum value of idx before state should change
     integer idx_max_val;
     // Combinational assignment of next state value
-    reg [tx_STATES-1:0] tx_next;
+    reg [tx_STATES-1:0] tx_next, axi_next;
     
     localparam rx_STATES                    = 4;
     localparam [rx_STATES-1:0] DETECT       = 'b0001;
@@ -124,6 +124,14 @@ module Controller
     reg [START_CODE_LEN-1:0] code           = 0;
     reg [7:0] rx_len              = 0;
     reg [7:0] rx_buffer [0:255];
+    
+    integer i = 0;
+    initial begin
+        for ( i = 0; i < 256; i = i + 1 ) begin
+            rx_buffer[i] = 0;
+        end
+    end
+    
     reg write_to_buffer                     = 0;
     reg [7:0] rx_byte                       = 0;
     integer kdx = 0, hdx = 0;
@@ -142,6 +150,7 @@ module Controller
         IDLE: begin
             if ( s_axis_tvalid ) begin
                 tx_state <= AXI_RX;
+                axi_next <= PRESYNC;
                 idx <= 0;
                 jdx <= 0;
                 s_axis_tready <= 1;
@@ -164,6 +173,11 @@ module Controller
                     idx <= 0;
                     jdx <= 0;
                     tx_state <= tx_next;
+                    if ( tx_next == AXI_RX ) begin
+                        axi_next <= STARTCODE;
+                        s_axis_tready <= 1;
+                        tx_len <= 0;
+                    end
                 end else
                 if ( jdx == SPS - 1 ) begin
                     idx <= idx + 1;
@@ -178,7 +192,7 @@ module Controller
             if ( s_axis_tvalid ) begin
                 message_buffer[(tx_len*8)+:32] <= s_axis_tdata;
                 if ( s_axis_tlast ) begin
-                    tx_state <= PRESYNC;
+                    tx_state <= axi_next;
                     case ( s_axis_tkeep )
                     'b1111: tx_len <= tx_len + 4;
                     'b1110: tx_len <= tx_len + 3;
@@ -261,6 +275,8 @@ module Controller
             if ( m_axis_tvalid ) begin
                 if ( m_axis_tready ) begin
                     m_axis_tvalid <= 0;
+                    m_axis_tlast <= 0;
+                    m_axis_tkeep <= 0;
                     rx_state <= ( m_axis_tlast ) ? DETECT : rx_state;
                     hdx <= ( m_axis_tlast ) ? 0 : hdx + 4;
                 end else begin
@@ -335,7 +351,14 @@ module Controller
         POSTSYNC: begin
             current_bit     = idx % 2;
             idx_max_val     = SYNC_LEN - 1;
-            tx_next         = IDLE;
+            if ( s_axis_tvalid ) begin
+                tx_next     = AXI_RX;
+            end else
+            if ( start ) begin
+                tx_next     = STARTCODE;
+            end else begin
+                tx_next         = IDLE;
+            end
         end
         default: begin   
             current_bit     = 0;

@@ -18,9 +18,14 @@ module Costas_Loop
     localparam FRAC = 16;
     wire signed [WDTH-1:0] input_sample = modulated_input <<< FRAC - SYMBOL_FRAC;
     
-    localparam reg signed [WDTH-1:0] KP = $rtoi(kp * ($pow(2, $itor(FRAC))));
-    localparam reg signed [WDTH-1:0] KI = $rtoi(ki * ($pow(2, $itor(FRAC))));
-    localparam reg signed [WDTH-1:0] KD = $rtoi(kd * ($pow(2, $itor(FRAC))));
+//    localparam signed [SYMBOL_WIDTH-1:0] SYMB_MIN = 2**(SYMBOL_WIDTH-1);
+//    localparam signed [SYMBOL_WIDTH-1:0] SYMB_MAX = 2**(SYMBOL_WIDTH-1) - 1;
+//    localparam signed [WDTH-1:0] MIN = SYMB_MIN <<< FRAC - SYMBOL_FRAC;
+//    localparam signed [WDTH-1:0] MAX = SYMB_MAX <<< FRAC - SYMBOL_FRAC;
+    
+    localparam signed [WDTH-1:0] KP = $rtoi(kp * ($pow(2, $itor(FRAC))));
+    localparam signed [WDTH-1:0] KI = $rtoi(ki * ($pow(2, $itor(FRAC))));
+    localparam signed [WDTH-1:0] KD = $rtoi(kd * ($pow(2, $itor(FRAC))));
     
     wire signed [WDTH-1:0] cosine, neg_sine;
     
@@ -176,6 +181,7 @@ module Costas_Loop
             
             if ( new_sample ) begin
                 I_component <= in_phase >>> (FRAC - SYMBOL_FRAC);
+                
                 theta <= newtheta3;
                 old_err <= err;
                 sum_err <= sum_err + err;

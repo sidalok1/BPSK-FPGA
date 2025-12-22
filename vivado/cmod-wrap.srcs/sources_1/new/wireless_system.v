@@ -185,16 +185,6 @@ module wireless_system(
     
     parameter adc_spl_rate = 3_000_000;
     
-    
-//    MAX11108_Controller adc_controller (
-//        .clk(clk),
-//        .rst(0),
-//        .en(1),
-//        ._CS(cs),
-//        .POCI(sdo),
-//        .SCLK(sclk),
-//        .data(adc_out)
-//    );
     max11108_controller (
         .clk(clk),
         .rst(0),
@@ -282,23 +272,22 @@ module wireless_system(
         .signal_detected(signal_detected)
     );
     
-    AGC #(
+    PGA #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
-        .N(256),
-        .kp(0.02),
+        .N(360),
+        .kp(0.03125),
         .ki(0.0),
-        .kd(0.005),
-        .TARGET_LEVEL(0.5)
+        .kd(0.0),
+        .TARGET(0.8)
     ) auto_amp (
         .clk(clk),
-        .en(1),
+        .en(signal_detected),
         .rst(reset_rx),
         .new_sample(new_sample),
         .in_sample(ac_signal),
         .out_sample(agc_out)
     );
-
     
     pulse_generator #( .pulse_width(1000) )
         rx_pulse_generator (
@@ -312,8 +301,6 @@ module wireless_system(
     Costas_Loop #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
-//        .SAMPLE_RATE(spl_rate),
-//        .CARRIER_FRQ($itor(carrier_frq - (carrier_frq * 0.03))),
         .CARRIER_FRQ(carrier_frq),
         .kp(0.01),
         .ki(0.00002),

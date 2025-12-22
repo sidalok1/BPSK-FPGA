@@ -30,7 +30,12 @@ module tb();
     wire s_axis_tvalid;
     reg s_axis_tready = 1;
     
-    always @ ( posedge clk ) if ( m_axis_tvalid && m_axis_tready ) m_axis_tvalid <= 0;
+    always @ ( posedge clk ) 
+        if ( m_axis_tvalid && m_axis_tready ) begin 
+            m_axis_tvalid <= 0;
+            m_axis_tlast <= 0;
+            m_axis_tkeep <= 0; 
+        end
     
     wire signed [symb_width-1:0] sym_gen_out;
 //    wire sym_gen_ready;
@@ -268,17 +273,17 @@ module tb();
         .signal_detected(signal_detected)
     );
     
-    AGC #(
+    PGA #(
         .SYMBOL_WIDTH(symb_width),
         .SYMBOL_FRAC(symb_frac),
-        .N(256),
-        .kp(10),
-        .ki(0.0025),
-        .kd(0),
-        .TARGET_LEVEL(0.5)
+        .N(360),
+        .kp(0.03125),
+        .ki(0.0),
+        .kd(0.0),
+        .TARGET(0.8)
     ) auto_amp (
         .clk(clk),
-        .en(1),
+        .en(signal_detected),
         .rst(reset_rx),
         .new_sample(new_sample),
         .in_sample(ac_signal),
@@ -382,9 +387,16 @@ module tb();
         m_axis_tvalid = 1;
         m_axis_tlast = 1;
         m_axis_tkeep = 'b1000;
+        while ( m_axis_tvalid ) #1;
         
         
-        #5_000_000 start = 1;
+        #3_000_000 m_axis_tdata = "hi!\0";
+        m_axis_tvalid = 1;
+        m_axis_tlast = 1;
+        m_axis_tkeep = 'b1110;
+        while ( m_axis_tvalid ) #1;
+        
+        #3_000_000 start = 1; 
         #10 start = 0;
     end
     
