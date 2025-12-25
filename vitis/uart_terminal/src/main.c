@@ -10,6 +10,7 @@ XUartLite UartLite;
 
 #define RADIO_FSL_ID 0
 #define MAX_BYTES 2048
+#define MSR_FSL_BIT 0x10
 
 u8 uart_recv_buf[MAX_BYTES];
 unsigned int uart_recv_idx = 0;
@@ -62,6 +63,7 @@ int radio_recv() {
         radio_recv_buf[radio_recv_idx++] = c;
         fsl_iserror(s); // indicates control (tlast asserted)
         if ( s ) {
+            msrclr(MSR_FSL_BIT);
             return send_over_uart();
         }
         ngetfsl(w, RADIO_FSL_ID);
