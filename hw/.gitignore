@@ -1,0 +1,20 @@
+**
+!constraints
+!constraints/**
+!sim
+!sim/**
+!src
+!src/**
+!bpsk-fpga.tcl
+!system_wrapper.xsa
+!.gitignore
+# To clean up version control, only the .xci files for ip are tracked
+# The downside is that these IP can only be built in vivado 2025.1
+# If this becomes a problem, rebuild the project in 2025.1 and track all
+# Files under the bd subdirectory
+src/bd/**/ipshared
+src/bd/**/ip/**
+!src/bd/**/ip/*/
+!src/bd/**/ip/**/*.xci
+src/bd/**/sim
+src/bd/**/synth
